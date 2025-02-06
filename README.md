@@ -1,119 +1,55 @@
-# Web Scraper with Outreach Email Generator
+# Web Scraper Frontend
 
-A full-stack web application that scrapes contact information from websites and generates personalized outreach emails using OpenAI's GPT model.
+Next.js frontend for the web scraper application, providing a modern UI for scraping contact information and generating outreach emails.
 
 ## Features
 
-- **Frontend (Next.js)**:
-  - Modern, responsive UI
-  - Drag-and-drop CSV upload
-  - Paste multiple URLs
-  - Real-time scraping status
-  - Export results to CSV
-  - Error handling and feedback
-
-- **Backend (Flask)**:
-  - Concurrent URL processing
-  - Contact information extraction:
-    - Business Name
-    - Email Addresses
-    - Phone Numbers
-    - Social Media Links
-  - OpenAI integration for email generation
-  - Rate limiting and polite scraping
+- Modern, responsive UI with Tailwind CSS
+- Drag-and-drop CSV upload
+- Bulk URL processing
+- Real-time scraping status updates
+- CSV export with separate email subject and body
+- Error handling and user feedback
 
 ## Tech Stack
 
-- **Frontend**:
-  - Next.js 13+
-  - TypeScript
-  - Tailwind CSS
-  - Axios
-
-- **Backend**:
-  - Python 3.11+
-  - Flask
-  - BeautifulSoup4
-  - OpenAI API
-  - Concurrent processing
+- Next.js 13+
+- TypeScript
+- Tailwind CSS
+- Axios
 
 ## Setup
 
-1. Clone this repository
-2. Install frontend dependencies:
+1. Install dependencies:
 ```bash
-cd frontend
 npm install
 ```
 
-3. Install backend dependencies:
-```bash
-cd backend
-pip install -r requirements.txt
+2. Set up environment variables:
+Create a `.env.local` file with:
+```env
+NEXT_PUBLIC_API_URL=your_backend_url
 ```
 
-4. Set up environment variables:
-Create a `.env` file in the root directory:
-```env
-OPENAI_API_KEY=your_openai_api_key
+3. Run development server:
+```bash
+npm run dev
 ```
 
 ## Development
 
-1. Start the backend server:
-```bash
-cd backend
-python app.py
-```
-
-2. Start the frontend development server:
-```bash
-cd frontend
-npm run dev
-```
-
-3. Open http://localhost:3000 in your browser
+- `npm run dev`: Start development server
+- `npm run build`: Build for production
+- `npm run start`: Start production server
+- `npm run lint`: Run ESLint
 
 ## Deployment
 
-### Backend (AWS App Runner)
-The backend is automatically deployed to AWS App Runner through GitHub Actions when pushing to the main branch.
+The application is deployed to Netlify. Push to main branch to trigger automatic deployment.
 
-Required AWS setup:
-1. Create an AWS account
-2. Set up IAM role with necessary permissions
-3. Configure GitHub repository secrets:
-   - `AWS_ROLE_ARN`
-   - `APPRUNNER_SERVICE_ROLE_ARN`
-   - `OPENAI_API_KEY`
-
-### Frontend (Netlify)
-The frontend is deployed to Netlify.
-
-Required environment variables:
-- `NEXT_PUBLIC_API_URL`: URL of the deployed backend
-
-## Output Format
-
-The scraper outputs data in the following format:
-```json
-{
-  "url": "https://example.com",
-  "business_name": "Example Business",
-  "emails": ["contact@example.com"],
-  "phones": ["+1 123-456-7890"],
-  "social_links": {
-    "facebook": "https://facebook.com/example",
-    "twitter": "https://twitter.com/example"
-  },
-  "outreach_email": "Generated personalized email content"
-}
-```
+Required Environment Variables:
+- `NEXT_PUBLIC_API_URL`: URL of the backend API
 
 ## Legal Considerations
 
 Please ensure you have permission to scrape websites and comply with their robots.txt files and terms of service.
-
-## License
-
-MIT

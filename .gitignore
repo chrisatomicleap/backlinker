@@ -1,5 +1,5 @@
 # dependencies
-node_modules
+/node_modules
 /.pnp
 .pnp.js
 
@@ -7,8 +7,8 @@ node_modules
 /coverage
 
 # next.js
-.next/
-out/
+/.next/
+/out/
 
 # production
 /build
@@ -33,31 +33,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# IDE
-.vscode/
-.idea/
-
-# Scraping results
-scraping_results.json
+# Local Netlify folder
+.netlify
