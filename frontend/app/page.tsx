@@ -59,7 +59,7 @@ export default function Home() {
     setResults([]);
 
     try {
-      const response = await axios.post('/api/scrape', {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/scrape`, {
         urls,
         companyName,
         backlinkUrl
