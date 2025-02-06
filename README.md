@@ -11,6 +11,13 @@ Next.js frontend for the web scraper application, providing a modern UI for scra
 - CSV export with separate email subject and body
 - Error handling and user feedback
 
+## Tech Stack
+
+- Next.js 13+
+- TypeScript
+- Tailwind CSS
+- Axios
+
 ## Setup
 
 1. Install dependencies:
@@ -42,3 +49,7 @@ The application is deployed to Netlify. Push to main branch to trigger automatic
 
 Required Environment Variables:
 - `NEXT_PUBLIC_API_URL`: URL of the backend API
+
+## Legal Considerations
+
+Please ensure you have permission to scrape websites and comply with their robots.txt files and terms of service.

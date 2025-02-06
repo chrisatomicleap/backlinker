@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+  base = "frontend"
+
+[build.environment]
+  NEXT_USE_NETLIFY_EDGE = "true"
+  NEXT_PRIVATE_TARGET = "server"
+  NODE_VERSION = "18.17.0"
+  NPM_VERSION = "9.6.7"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
