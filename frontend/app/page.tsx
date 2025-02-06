@@ -65,14 +65,11 @@ export default function Home() {
         backlinkUrl
       });
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to process request');
-      }
-
-      setResults(response.data.data);
+      // The response data is the results array directly
+      setResults(response.data);
     } catch (error: any) {
       console.error('Error:', error);
-      setError(error.message || 'An unexpected error occurred');
+      setError(error.response?.data?.error || error.message || 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -81,18 +78,32 @@ export default function Home() {
   const exportToCSV = () => {
     if (results.length === 0) return;
 
-    const csvData = results.map(result => ({
-      Website: result.website,
-      'Business Name': result.business_name || '',
-      'Emails': Array.isArray(result.email) ? result.email.join('; ') : result.email || '',
-      'Phone Numbers': Array.isArray(result.phone) ? result.phone.join('; ') : result.phone || '',
-      'Address': result.address || '',
-      'Contact Page': result.contact_page || '',
-      'Social Media': Object.entries(result.social_links || {})
-        .map(([platform, url]) => `${platform}: ${url}`)
-        .join('; '),
-      'Generated Email': result.outreach_email || ''
-    }));
+    const csvData = results.map(result => {
+      // Split the email into subject and body
+      let emailSubject = '';
+      let emailBody = '';
+      
+      if (result.outreach_email) {
+        const emailParts = result.outreach_email.split('\n');
+        // Extract subject line (removes "Subject: " prefix)
+        emailSubject = emailParts[0].replace('Subject: ', '');
+        // Get the rest of the email (skipping empty line after subject)
+        emailBody = emailParts.slice(2).join('\n');
+      }
+
+      return {
+        Website: result.url,
+        'Business Name': result.business_name || '',
+        'Emails': Array.isArray(result.emails) ? result.emails.join('; ') : result.emails || '',
+        'Phone Numbers': Array.isArray(result.phones) ? result.phones.join('; ') : result.phones || '',
+        'Social Media': Object.entries(result.social_links || {})
+          .map(([platform, url]) => `${platform}: ${url}`)
+          .join('; '),
+        'Email Subject': emailSubject,
+        'Email Body': emailBody,
+        'Error': result.error || ''
+      };
+    });
 
     const csv = Papa.unparse(csvData);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -221,27 +232,18 @@ export default function Home() {
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <h3 className="font-semibold text-lg">{result.business_name || 'Unknown Business'}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{result.website}</p>
+                    <p className="text-sm text-gray-600 mb-2">{result.url}</p>
                     
                     {/* Contact Information */}
                     <div className="mt-4 space-y-2">
-                      {result.email && result.email.length > 0 && (
-                        <p><span className="font-medium">Emails:</span> {result.email.join(', ')}</p>
+                      {result.emails && result.emails.length > 0 && (
+                        <p><span className="font-medium">Emails:</span> {result.emails.join(', ')}</p>
                       )}
-                      {result.phone && result.phone.length > 0 && (
-                        <p><span className="font-medium">Phone Numbers:</span> {result.phone.join(', ')}</p>
+                      {result.phones && result.phones.length > 0 && (
+                        <p><span className="font-medium">Phone Numbers:</span> {result.phones.join(', ')}</p>
                       )}
-                      {result.address && (
-                        <p><span className="font-medium">Address:</span> {result.address}</p>
-                      )}
-                      {result.contact_page && (
-                        <p>
-                          <span className="font-medium">Contact Page:</span>{' '}
-                          <a href={result.contact_page} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-500 hover:text-blue-700">
-                            View Contact Page
-                          </a>
-                        </p>
+                      {result.error && (
+                        <p className="text-red-500"><span className="font-medium">Error:</span> {result.error}</p>
                       )}
                     </div>
 
@@ -265,14 +267,16 @@ export default function Home() {
                   </div>
 
                   {/* Generated Email */}
-                  <div>
-                    <h4 className="font-medium mb-2">Generated Email:</h4>
-                    <div className="bg-gray-50 p-4 rounded">
-                      <pre className="whitespace-pre-wrap text-sm">
-                        {result.outreach_email}
-                      </pre>
+                  {result.outreach_email && (
+                    <div>
+                      <h4 className="font-medium mb-2">Generated Email:</h4>
+                      <div className="bg-gray-50 p-4 rounded">
+                        <pre className="whitespace-pre-wrap text-sm">
+                          {result.outreach_email}
+                        </pre>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}

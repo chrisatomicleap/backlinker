@@ -4,13 +4,12 @@ import time
 from typing import Dict, List, Optional
 import requests
 from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
 from urllib.parse import urljoin, urlparse
 import validators
 from tqdm import tqdm
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+import openai
 
 # Load environment variables
 load_dotenv()
@@ -22,23 +21,29 @@ class WebScraper:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        
+        # Configure OpenAI without proxy settings
+        openai.api_key = api_key
+        # Reset any proxy settings that might be in the environment
+        os.environ.pop('OPENAI_PROXY', None)
+        os.environ.pop('OPENAI_HTTP_PROXY', None)
+        os.environ.pop('OPENAI_HTTPS_PROXY', None)
+        
         # Company and backlink information
         self.company_name = "Tanglewood Care Homes"
         self.backlink_url = "https://www.tanglewoodcarehomes.co.uk/understanding-dementia-care-guide-for-families-residents/"
 
     def extract_emails(self, text: str) -> List[str]:
         """Extract email addresses from text using regex."""
-        # More comprehensive email pattern
         email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-        # Also look for obfuscated emails
         text = text.replace(' [at] ', '@').replace(' [dot] ', '.')
-        # Find all emails and clean them
         emails = re.findall(email_pattern, text)
-        # Clean and validate emails
         valid_emails = []
         for email in emails:
-            email = email.strip('.,')  # Remove trailing punctuation
+            email = email.strip('.,')
             if validators.email(email):
                 valid_emails.append(email)
         return list(set(valid_emails))
@@ -49,65 +54,54 @@ class WebScraper:
             r'\+\d{1,3}[-.\s]?\d{3}[-.\s]?\d{3}[-.\s]?\d{4}',  # International format
             r'\(\d{3}\)\s*\d{3}[-.\s]?\d{4}',  # (123) 456-7890
             r'\d{3}[-.\s]?\d{3}[-.\s]?\d{4}',  # 123-456-7890
-            r'\d{5}[-.\s]?\d{6}',  # UK format
-            r'0\d{4}[-.\s]?\d{6}',  # UK mobile
-            r'\+44\s?\d{4}[-.\s]?\d{6}'  # UK international
+            r'\d{5}\s\d{6}'  # UK format
         ]
+        
         phones = []
-        # Replace common phone text
-        text = text.replace('Tel:', '').replace('Phone:', '').replace('Call:', '')
         for pattern in phone_patterns:
-            found = re.findall(pattern, text)
-            phones.extend(found)
-        # Clean phone numbers
-        cleaned_phones = []
-        for phone in phones:
-            # Remove all non-digit characters except + for international
-            cleaned = re.sub(r'[^\d+]', '', phone)
-            if len(cleaned) >= 10:  # Only keep numbers with reasonable length
-                cleaned_phones.append(cleaned)
-        return list(set(cleaned_phones))
+            matches = re.findall(pattern, text)
+            phones.extend(matches)
+        return list(set(phones))
 
     def extract_social_links(self, soup: BeautifulSoup, base_url: str) -> Dict[str, str]:
         """Extract social media links from the page."""
         social_patterns = {
-            'facebook': r'facebook\.com|fb\.me',
+            'facebook': r'facebook\.com',
             'twitter': r'twitter\.com|x\.com',
             'linkedin': r'linkedin\.com',
-            'instagram': r'instagram\.com',
-            'youtube': r'youtube\.com',
-            'pinterest': r'pinterest\.com',
-            'tiktok': r'tiktok\.com'
+            'instagram': r'instagram\.com'
         }
         
         social_links = {}
-        # Look in both href attributes and text content
-        for link in soup.find_all(['a', 'link'], href=True):
-            href = urljoin(base_url, link['href'])
-            for platform, pattern in social_patterns.items():
-                if re.search(pattern, href, re.I):
-                    social_links[platform] = href
-        
-        # Also look for social media icons
-        icon_classes = {
-            'facebook': r'fb|facebook|social-fb',
-            'twitter': r'tw|twitter|social-tw',
-            'linkedin': r'ln|linkedin|social-ln',
-            'instagram': r'ig|instagram|social-ig',
-            'youtube': r'yt|youtube|social-yt',
-            'pinterest': r'pin|pinterest',
-            'tiktok': r'tiktok|tt'
-        }
-        
-        for link in soup.find_all('a', class_=True):
-            classes = ' '.join(link.get('class', []))
-            href = urljoin(base_url, link.get('href', ''))
-            if validators.url(href):
-                for platform, pattern in icon_classes.items():
-                    if re.search(pattern, classes, re.I) and platform not in social_links:
-                        social_links[platform] = href
+        for platform, pattern in social_patterns.items():
+            links = soup.find_all('a', href=re.compile(pattern, re.I))
+            if links:
+                social_links[platform] = urljoin(base_url, links[0]['href'])
         
         return social_links
+
+    def extract_business_name(self, soup: BeautifulSoup, url: str) -> str:
+        """Extract business name from common locations in the HTML."""
+        # Try to find business name in common locations
+        name_locations = [
+            soup.find('meta', property='og:site_name'),
+            soup.find('meta', property='og:title'),
+            soup.find('title')
+        ]
+        
+        for location in name_locations:
+            if location:
+                name = location.get('content', '') or location.string
+                if name:
+                    # Clean up the name
+                    name = re.sub(r'\s*[|-]\s*.+$', '', name.strip())
+                    return name
+        
+        # If no name found, use the domain name
+        domain = urlparse(url).netloc
+        domain = re.sub(r'^www\.', '', domain)
+        domain = domain.split('.')[0].replace('-', ' ').title()
+        return domain
 
     def extract_address(self, soup: BeautifulSoup) -> Optional[str]:
         """Extract physical address from the page."""
@@ -168,68 +162,6 @@ class WebScraper:
         text = ' '.join(text.split())
         return text[:5000]  # Limit to first 5000 characters
 
-    def generate_outreach_email(self, website_data: Dict) -> str:
-        """Generate a personalized outreach email using GPT-4."""
-        prompt = f"""
-        Generate a friendly and professional outreach email for link building. Use this information:
-        
-        Business Name: {website_data.get('business_name', 'their company')}
-        Website: {website_data.get('website')}
-        
-        Key points to include:
-        1. Introduce yourself and mention you found their website
-        2. Compliment something specific about the article content that we believe is a shared interest
-        3. We would like a link on the article as our page as we think their readers might find it useful
-        4. Mention that we are Atomic Leap working with {self.company_name}
-        5. Keep it concise, friendly, and professional and write in a human like manner
-        6. put the link to the page we want the link from in the email {website_data.get('website')}
-        7. put the link we think would provide a good backlink for them to look at - {self.backlink_url}
-        8. Add a clear call to action
-        
-        Additional context from their website:
-        {website_data.get('page_content', '')}
-        """
-
-        try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are an experienced digital marketing professional writing outreach emails for link building."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=500
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"Error generating email: {str(e)}"
-
-    def extract_business_name(self, soup: BeautifulSoup) -> Optional[str]:
-        """Extract business name from various sources."""
-        # Try title tag first
-        if soup.title:
-            title = soup.title.string
-            # Clean up common suffixes
-            title = re.sub(r'\s*[|\-–—]\s*.*$', '', title)
-            return title.strip()
-            
-        # Try meta tags
-        meta_title = soup.find('meta', property='og:site_name')
-        if meta_title and meta_title.get('content'):
-            return meta_title['content'].strip()
-            
-        # Try schema.org data
-        schema = soup.find('script', type='application/ld+json')
-        if schema:
-            try:
-                data = json.loads(schema.string)
-                if isinstance(data, dict):
-                    return data.get('name')
-            except:
-                pass
-                
-        return None
-
     def find_contact_page(self, soup: BeautifulSoup, base_url: str) -> Optional[str]:
         """Find the contact page URL if it exists."""
         contact_patterns = [
@@ -249,115 +181,109 @@ class WebScraper:
         return None
 
     def scrape_url(self, url: str) -> Dict:
-        """Main method to scrape a website for contact details."""
-        if not validators.url(url):
-            return {"error": f"Invalid URL: {url}"}
-
-        result = {
-            "website": url,
-            "business_name": None,
-            "email": [],
-            "phone": [],
-            "social_links": {},
-            "address": None,
-            "contact_page": None,
-            "page_content": None,
-            "outreach_email": None
-        }
-
+        """Scrape a website for contact details using requests and BeautifulSoup."""
         try:
-            # First try with requests/BeautifulSoup
-            response = requests.get(url, headers=self.headers, timeout=30)
+            # Validate URL
+            if not validators.url(url):
+                raise ValueError(f"Invalid URL: {url}")
+
+            # Make the request with a shorter timeout
+            response = requests.get(url, headers=self.headers, timeout=10, proxies=None)
+            response.raise_for_status()
+            
+            # Parse the HTML
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Extract initial data
-            result["business_name"] = self.extract_business_name(soup)
-            result["email"] = self.extract_emails(response.text)
-            result["phone"] = self.extract_phones(response.text)
-            result["social_links"] = self.extract_social_links(soup, url)
-            result["address"] = self.extract_address(soup)
-            result["contact_page"] = self.find_contact_page(soup, url)
-            result["page_content"] = self.extract_page_content(soup)
+            # Extract all text content
+            text_content = soup.get_text()
+            
+            # Get the base URL for resolving relative links
+            base_url = response.url
+            
+            # Extract information
+            business_name = self.extract_business_name(soup, url)
+            emails = self.extract_emails(text_content)
+            phones = self.extract_phones(text_content)
+            social_links = self.extract_social_links(soup, base_url)
+            
+            # Compile results
+            result = {
+                'business_name': business_name,
+                'emails': emails,
+                'phones': phones,
+                'social_links': social_links,
+                'url': url
+            }
+            
+            # Add a shorter delay between requests
+            time.sleep(1)
+            
+            return result
+            
+        except requests.Timeout:
+            print(f"Timeout while scraping {url}")
+            return {
+                'url': url,
+                'error': 'Request timed out',
+                'business_name': urlparse(url).netloc.replace('www.', '')
+            }
+        except Exception as e:
+            print(f"Error scraping {url}: {str(e)}")
+            return {
+                'url': url,
+                'error': str(e),
+                'business_name': urlparse(url).netloc.replace('www.', '')
+            }
 
-            # If contact page exists and we haven't found much information, scrape it
-            if result["contact_page"] and (not result["email"] or not result["phone"]):
-                time.sleep(self.delay)
-                contact_response = requests.get(result["contact_page"], headers=self.headers, timeout=30)
-                contact_soup = BeautifulSoup(contact_response.text, 'html.parser')
-                
-                result["email"].extend(self.extract_emails(contact_response.text))
-                result["phone"].extend(self.extract_phones(contact_response.text))
-                if not result["address"]:
-                    result["address"] = self.extract_address(contact_soup)
+    def generate_outreach_email(self, business_name: str, company_name: str, backlink_url: str) -> str:
+        """Generate an outreach email using OpenAI API."""
+        try:
+            prompt = f"""
+            Write a friendly and professional outreach email to {business_name}.
+            The email should:
+            1. Introduce {company_name}
+            2. Request to add our backlink ({backlink_url})
+            3. Explain the mutual benefits
+            4. Keep it concise and natural
+            5. End with a clear call to action
+            """
 
-            # If still missing crucial information, try with Playwright
-            if not any([result["email"], result["phone"], result["address"]]):
-                with sync_playwright() as p:
-                    browser = p.chromium.launch()
-                    page = browser.new_page()
-                    page.goto(url)
-                    time.sleep(3)  # Wait for dynamic content
-                    content = page.content()
-                    dynamic_soup = BeautifulSoup(content, 'html.parser')
-                    
-                    result["email"].extend(self.extract_emails(content))
-                    result["phone"].extend(self.extract_phones(content))
-                    if not result["address"]:
-                        result["address"] = self.extract_address(dynamic_soup)
-                    
-                    browser.close()
+            # Create completion without proxy settings
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a professional outreach specialist writing an email to request a backlink."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=300,
+                temperature=0.7
+            )
 
-            # Remove duplicates
-            result["email"] = list(set(result["email"]))
-            result["phone"] = list(set(result["phone"]))
-
-            # Generate outreach email
-            result["outreach_email"] = self.generate_outreach_email(result)
+            return response.choices[0].message['content'].strip()
 
         except Exception as e:
-            result["error"] = str(e)
-
-        return result
+            print(f"Error generating email: {str(e)}")
+            return "Error generating outreach email. Please try again later."
 
 def main():
-    import argparse
-    import sys
-    import json
-
-    parser = argparse.ArgumentParser(description='Web scraper for contact information')
-    parser.add_argument('--urls', type=str, help='JSON string of URLs to scrape')
-    parser.add_argument('--company', type=str, help='Company name we are working with')
-    parser.add_argument('--backlink', type=str, help='URL we want to promote')
-    args = parser.parse_args()
-
-    if args.urls:
-        try:
-            urls = json.loads(args.urls)
-        except json.JSONDecodeError:
-            print(json.dumps({"error": "Invalid JSON format for URLs"}))
-            sys.exit(1)
-    else:
-        urls = [
-            "https://atomicleap.agency",
-        ]
+    """Main function to test the scraper."""
+    scraper = WebScraper()
     
-    scraper = WebScraper(delay=2.0)
-    
-    # Update company name and backlink URL if provided
-    if args.company:
-        scraper.company_name = args.company
-    if args.backlink:
-        scraper.backlink_url = args.backlink
+    # Test URLs
+    test_urls = [
+        "https://example.com",
+        "https://example.org"
+    ]
     
     results = []
-    
-    for url in tqdm(urls, desc="Scraping websites"):
+    for url in tqdm(test_urls, desc="Scraping websites"):
         result = scraper.scrape_url(url)
-        results.append(result)
-        time.sleep(scraper.delay)  # Be polite
+        if result:
+            results.append(result)
     
-    # Print results to stdout for the Node.js process to capture
-    print(json.dumps(results))
+    # Save results to JSON file
+    with open('scraping_results.json', 'w') as f:
+        json.dump(results, f, indent=2)
 
 if __name__ == "__main__":
     main()
