@@ -12,6 +12,7 @@ export default function Home() {
   const [results, setResults] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState('Tanglewood Care Homes');
   const [backlinkUrl, setBacklinkUrl] = useState('https://www.tanglewoodcarehomes.co.uk/understanding-dementia-care-guide-for-families-residents/');
+  const [error, setError] = useState('');
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: {
@@ -51,20 +52,30 @@ export default function Home() {
     setUrls((prev) => prev.filter((url) => url !== urlToRemove));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
+    setError('');
+    setResults([]);
+
     try {
-      const response = await axios.post('/api/scrape', { 
+      const response = await axios.post('/api/scrape', {
         urls,
         companyName,
         backlinkUrl
       });
-      setResults(response.data);
-    } catch (error) {
-      console.error('Error scraping URLs:', error);
-      alert('Error scraping URLs. Please try again.');
+
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to process request');
+      }
+
+      setResults(response.data.data);
+    } catch (error: any) {
+      console.error('Error:', error);
+      setError(error.message || 'An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const exportToCSV = () => {
@@ -178,13 +189,17 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          <button
-            className="mt-4 bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
-            onClick={handleSubmit}
-            disabled={isLoading || urls.length === 0}
-          >
-            {isLoading ? 'Processing...' : 'Start Scraping'}
-          </button>
+          <form onSubmit={handleSubmit}>
+            <button
+              className="mt-4 bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
+              disabled={isLoading || urls.length === 0}
+            >
+              {isLoading ? 'Processing...' : 'Start Scraping'}
+            </button>
+            {error && (
+              <p className="mt-2 text-red-500">{error}</p>
+            )}
+          </form>
         </div>
       )}
 
