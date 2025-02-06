@@ -1,7 +1,7 @@
 [build]
   command = "npm run build"
-  publish = ".next"
-  base = "frontend"
+  publish = "frontend/.next"
+  base = "."
 
 [build.environment]
   NEXT_USE_NETLIFY_EDGE = "true"
