@@ -59,7 +59,14 @@ export default function Home() {
     setResults([]);
 
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/scrape`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      console.log('API URL:', apiUrl); // Debug log
+      
+      if (!apiUrl) {
+        throw new Error('API URL is not configured');
+      }
+
+      const response = await axios.post(`${apiUrl}/scrape`, {
         urls,
         companyName,
         backlinkUrl
