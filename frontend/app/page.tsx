@@ -10,8 +10,9 @@ export default function Home() {
   const [pastedUrls, setPastedUrls] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
-  const [companyName, setCompanyName] = useState('Tanglewood Care Homes');
-  const [backlinkUrl, setBacklinkUrl] = useState('https://www.tanglewoodcarehomes.co.uk/understanding-dementia-care-guide-for-families-residents/');
+  const [companyName, setCompanyName] = useState('');
+  const [backlinkUrl, setBacklinkUrl] = useState('');
+  const [openaiKey, setOpenaiKey] = useState('');
   const [error, setError] = useState('');
 
   const { getRootProps, getInputProps } = useDropzone({
@@ -54,6 +55,36 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!companyName.trim()) {
+      setError('Please enter your company name');
+      return;
+    }
+    
+    if (!backlinkUrl.trim()) {
+      setError('Please enter your article URL');
+      return;
+    }
+
+    if (!openaiKey.trim()) {
+      setError('Please enter your OpenAI API key');
+      return;
+    }
+    
+    // Validate URL format
+    try {
+      new URL(backlinkUrl);
+    } catch {
+      setError('Please enter a valid article URL');
+      return;
+    }
+    
+    if (urls.length === 0) {
+      setError('Please add at least one URL to process');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
     setResults([]);
@@ -68,11 +99,11 @@ export default function Home() {
 
       const response = await axios.post(`${apiUrl}/scrape`, {
         urls,
-        companyName,
-        backlinkUrl
+        companyName: companyName.trim(),
+        backlinkUrl: backlinkUrl.trim(),
+        openaiKey: openaiKey.trim()
       });
 
-      // The response data is the results array directly
       setResults(response.data);
     } catch (error: any) {
       console.error('Error:', error);
@@ -127,13 +158,29 @@ export default function Home() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Web Scraper Dashboard</h1>
 
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Company and Backlink Configuration */}
       <div className="bg-white p-6 rounded-lg shadow mb-8">
         <h2 className="text-xl font-semibold mb-4">Campaign Configuration</h2>
         <div className="space-y-4">
           <div>
             <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-              Company Name (Who we are working with)
+              Your Company Name
             </label>
             <input
               type="text"
@@ -141,11 +188,13 @@ export default function Home() {
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter your company name"
+              required
             />
           </div>
           <div>
             <label htmlFor="backlinkUrl" className="block text-sm font-medium text-gray-700 mb-1">
-              Backlink URL (The link we want to promote)
+              Your Article URL
             </label>
             <input
               type="text"
@@ -153,6 +202,22 @@ export default function Home() {
               value={backlinkUrl}
               onChange={(e) => setBacklinkUrl(e.target.value)}
               className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter the URL of the article you want to promote"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="openaiKey" className="block text-sm font-medium text-gray-700 mb-1">
+              Your OpenAI API Key
+            </label>
+            <input
+              type="text"
+              id="openaiKey"
+              value={openaiKey}
+              onChange={(e) => setOpenaiKey(e.target.value)}
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter your OpenAI API key"
+              required
             />
           </div>
         </div>
@@ -214,9 +279,6 @@ export default function Home() {
             >
               {isLoading ? 'Processing...' : 'Start Scraping'}
             </button>
-            {error && (
-              <p className="mt-2 text-red-500">{error}</p>
-            )}
           </form>
         </div>
       )}
