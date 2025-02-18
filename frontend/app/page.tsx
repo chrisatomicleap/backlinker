@@ -13,6 +13,8 @@ export default function Home() {
   const [companyName, setCompanyName] = useState('');
   const [backlinkUrl, setBacklinkUrl] = useState('');
   const [openaiKey, setOpenaiKey] = useState('');
+  const [userName, setUserName] = useState('');
+  const [userOrganization, setUserOrganization] = useState('');
   const [error, setError] = useState('');
 
   const { getRootProps, getInputProps } = useDropzone({
@@ -71,6 +73,16 @@ export default function Home() {
       setError('Please enter your OpenAI API key');
       return;
     }
+
+    if (!userName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+
+    if (!userOrganization.trim()) {
+      setError('Please enter your organization name');
+      return;
+    }
     
     // Validate URL format
     try {
@@ -101,7 +113,9 @@ export default function Home() {
         urls,
         companyName: companyName.trim(),
         backlinkUrl: backlinkUrl.trim(),
-        openaiKey: openaiKey.trim()
+        openaiKey: openaiKey.trim(),
+        userName: userName.trim(),
+        userOrganization: userOrganization.trim()
       });
 
       setResults(response.data);
@@ -189,6 +203,34 @@ export default function Home() {
               onChange={(e) => setCompanyName(e.target.value)}
               className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter your company name"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="userName" className="block text-sm font-medium text-gray-700 mb-1">
+              Your Name
+            </label>
+            <input
+              type="text"
+              id="userName"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter your name"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="userOrganization" className="block text-sm font-medium text-gray-700 mb-1">
+              Your Organization
+            </label>
+            <input
+              type="text"
+              id="userOrganization"
+              value={userOrganization}
+              onChange={(e) => setUserOrganization(e.target.value)}
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter your organization name"
               required
             />
           </div>
