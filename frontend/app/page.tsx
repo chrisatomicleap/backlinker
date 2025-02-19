@@ -170,7 +170,7 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Web Scraper Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-8">Backlink Outreach Tool</h1>
 
       {/* Error Display */}
       {error && (
@@ -222,7 +222,7 @@ export default function Home() {
           </div>
           <div>
             <label htmlFor="userOrganization" className="block text-sm font-medium text-gray-700 mb-1">
-              Your Organization
+              Linked Organization (Company you're representing)
             </label>
             <input
               type="text"
@@ -230,7 +230,7 @@ export default function Home() {
               value={userOrganization}
               onChange={(e) => setUserOrganization(e.target.value)}
               className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter your organization name"
+              placeholder="Enter the organization you're representing"
               required
             />
           </div>
